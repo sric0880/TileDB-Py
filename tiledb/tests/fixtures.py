@@ -8,7 +8,7 @@ from tiledb.tests.common import assert_subarrays_equal, rand_utf8
 INTEGER_DTYPES = ["u1", "u2", "u4", "u8", "i1", "i2", "i4", "i8"]
 
 
-@pytest.fixture(scope="module", params=["hilbert", "row-major"])
+@pytest.fixture(scope="module", params=["hilbert", "row-major", "col-major"])
 def sparse_cell_order(request):
     yield request.param
 
