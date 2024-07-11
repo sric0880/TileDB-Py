@@ -111,7 +111,7 @@ void init_attribute(py::module &m) {
         std::stringstream ss;
         ss << attr;
         return ss.str();
-       });
+      });
 }
 
 } // namespace libtiledbcpp
