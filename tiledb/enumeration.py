@@ -40,7 +40,7 @@ class Enumeration(CtxMixin, lt.Enumeration):
         """
         if values is None or len(values) == 0:
             if dtype is None:
-                raise ValueError("dtype must be provied for empty enumeration")
+                raise ValueError("dtype must be provided for empty enumeration")
             super().__init__(ctx, name, np.dtype(dtype), ordered)
 
         values = np.array(values)
@@ -101,6 +101,7 @@ class Enumeration(CtxMixin, lt.Enumeration):
     def extend(self, values: Sequence[Any]) -> Enumeration:
         """Add additional values to the enumeration.
 
+        :param values: The values to add to the enumeration
         :rtype: Enumeration
         """
         values = np.array(values)

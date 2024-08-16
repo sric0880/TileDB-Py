@@ -108,7 +108,7 @@ class EnumerationTest(DiskTestCase):
 
     @pytest.mark.skipif(
         not has_pyarrow() or not has_pandas(),
-        reason="pyarrow and/or pandas not installed",
+        reason="pyarrow>=1.0 and/or pandas>=1.0,<3.0 not installed",
     )
     @pytest.mark.parametrize("sparse", [True, False])
     @pytest.mark.parametrize("pass_df", [True, False])
@@ -140,6 +140,7 @@ class EnumerationTest(DiskTestCase):
             expected_validity = [False, False, True, False, False]
             assert_array_equal(A[:]["a"].mask, expected_validity)
             assert_array_equal(A.df[:]["a"].isna(), expected_validity)
+            assert_array_equal(A.query(attrs=["a"])[:]["a"].mask, expected_validity)
 
     @pytest.mark.parametrize(
         "dtype, values",
@@ -181,7 +182,7 @@ class EnumerationTest(DiskTestCase):
             assert enmr.dtype == enmr.values().dtype == dtype
             assert_array_equal(enmr.values(), values)
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_from_pandas_dtype_mismatch(self):
         import pandas as pd
 

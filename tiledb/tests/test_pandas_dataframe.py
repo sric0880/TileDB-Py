@@ -18,6 +18,7 @@ from .common import (
     DiskTestCase,
     dtype_max,
     dtype_min,
+    has_pandas,
     rand_ascii,
     rand_ascii_bytes,
     rand_datetime64_array,
@@ -25,8 +26,12 @@ from .common import (
 )
 from .datatypes import RaggedDtype
 
-pd = pytest.importorskip("pandas")
-tm = pd._testing
+if not has_pandas():
+    pytest.skip("pandas>=1.0,<3.0 not installed", allow_module_level=True)
+else:
+    import pandas as pd
+
+    tm = pd._testing
 
 
 def make_dataframe_basic1(col_size=10):
@@ -183,7 +188,10 @@ class TestColumnInfo:
         assert isinstance(info_nullable, bool)
         for type_spec in type_specs:
             self.assertColumnInfo(
-                ColumnInfo.from_dtype(type_spec), info_dtype, info_repr, info_nullable
+                ColumnInfo.from_dtype(type_spec, "foo"),
+                info_dtype,
+                info_repr,
+                info_nullable,
             )
 
             series = pd.Series([], dtype=type_spec)
@@ -230,14 +238,17 @@ class TestColumnInfo:
     @pytest.mark.parametrize("type_specs", unsupported_type_specs)
     def test_not_implemented(self, type_specs):
         for type_spec in type_specs:
-            pytest.raises(NotImplementedError, ColumnInfo.from_dtype, type_spec)
+            pytest.raises(NotImplementedError, ColumnInfo.from_dtype, type_spec, "foo")
             try:
-                series = pd.Series([], dtype=type_spec)
+                series = pd.Series([], dtype=type_spec, name="foo")
             except (ValueError, TypeError):
                 pass
             else:
                 if series.dtype == type_spec:
-                    pytest.raises(NotImplementedError, ColumnInfo.from_values, series)
+                    with pytest.raises(NotImplementedError) as exc:
+                        ColumnInfo.from_values(series)
+                    # check that the column name is included in the error message
+                    assert "supported (column foo)" in str(exc.value)
 
 
 class TestDimType:

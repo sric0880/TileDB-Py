@@ -141,7 +141,7 @@ class TestMultiRangeAuxiliary(DiskTestCase):
 class TestMultiRange(DiskTestCase):
     @pytest.mark.skipif(
         not has_pyarrow() or not has_pandas(),
-        reason="pyarrow and/or pandas not installed",
+        reason="pyarrow>=1.0 and/or pandas>=1.0,<3.0 not installed",
     )
     def test_return_arrow_indexers(self):
         uri = self.path("multirange_behavior_sparse")
@@ -183,7 +183,7 @@ class TestMultiRange(DiskTestCase):
 
     @pytest.mark.skipif(
         not has_pyarrow() or not has_pandas(),
-        reason="pyarrow and/or pandas not installed",
+        reason="pyarrow>=1.0 and/or pandas>=1.0,<3.0 not installed",
     )
     @pytest.mark.parametrize("sparse", [True, False])
     def test_return_large_arrow_table(self, sparse):
@@ -729,7 +729,7 @@ class TestMultiRange(DiskTestCase):
                 np.array([], dtype=np.uint64),
             )
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_fixed_multi_attr_df(self):
         uri = self.path("test_fixed_multi_attr_df")
         dom = tiledb.Domain(
@@ -763,7 +763,7 @@ class TestMultiRange(DiskTestCase):
             result = A.query(attrs=["111"], use_arrow=False)
             assert_array_equal(result.df[0]["111"], data_111)
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_var_multi_attr_df(self):
         uri = self.path("test_var_multi_attr_df")
         dom = tiledb.Domain(
@@ -845,7 +845,7 @@ class TestMultiRange(DiskTestCase):
             assert A.nonempty_domain() is None
             assert_array_equal(A.multi_index[:][""], A[:][""])
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_multi_index_query_args(self):
         uri = self.path("test_multi_index_query_args")
         schema = tiledb.ArraySchema(
@@ -871,7 +871,7 @@ class TestMultiRange(DiskTestCase):
             assert_array_equal(q.multi_index[:]["a"], q.df[:]["a"])
             assert all(q[:]["a"] >= 5)
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_multi_index_timing(self):
         path = self.path("test_multi_index_timing")
         attr_name = "a"
@@ -886,7 +886,7 @@ class TestMultiRange(DiskTestCase):
             assert "py.getitem_time.pandas_index_update_time :" in internal_stats
         tiledb.stats_disable()
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_fixed_width_char(self):
         uri = self.path("test_fixed_width_char")
         schema = tiledb.ArraySchema(
@@ -902,6 +902,30 @@ class TestMultiRange(DiskTestCase):
 
         with tiledb.open(uri, mode="r") as A:
             assert all(A.query(use_arrow=True).df[:][""] == data)
+
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
+    def test_empty_idx(self):
+        uri = self.path("test_empty_idx")
+
+        schema = tiledb.ArraySchema(
+            domain=tiledb.Domain(tiledb.Dim(name="dim", domain=(0, 9), dtype=np.uint8)),
+            sparse=True,
+            attrs=[tiledb.Attr(name="a", dtype=np.float64)],
+        )
+        tiledb.Array.create(uri, schema)
+
+        data = np.array(np.random.randint(10, size=10), dtype=np.float64)
+
+        with tiledb.open(uri, mode="w") as A:
+            A[np.arange(10)] = data
+
+        with tiledb.open(uri, mode="r") as A:
+            assert_array_equal(A.df[tiledb.EmptyRange]["a"], [])
+            assert_array_equal(A.multi_index[tiledb.EmptyRange]["a"], [])
+            assert_array_equal(A.df[[]]["a"], [])
+            assert_array_equal(A.multi_index[[]]["a"], [])
+            assert_array_equal(A.df[()]["a"], [])
+            assert_array_equal(A.multi_index[()]["a"], [])
 
 
 # parametrize dtype and sparse

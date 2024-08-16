@@ -19,22 +19,13 @@ if os.name == "posix":
 else:
     lib_name = "tiledb"
 
-# On Windows and whl builds, we may have a shared library already linked, or
-# adjacent to, the cython .pyd shared object. In this case, we can import directly
-# from .libtiledb
-try:
-    import tiledb
+from tiledb.libtiledb import version as libtiledb_version
 
-    from .libtiledb import Ctx
+if libtiledb_version()[0] == 2 and libtiledb_version()[1] >= 25:
+    from .current_domain import CurrentDomain
+    from .ndrectangle import NDRectangle
 
-    del Ctx
-except:
-    try:
-        lib_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "native")
-        ctypes.CDLL(os.path.join(lib_dir, lib_name))
-    except OSError:
-        # Otherwise try loading by name only.
-        ctypes.CDLL(lib_name)
+del libtiledb_version  # no longer needed
 
 from .array_schema import ArraySchema
 from .attribute import Attr
@@ -82,6 +73,8 @@ from .group import Group
 from .highlevel import (
     array_exists,
     array_fragments,
+    as_built,
+    consolidate,
     empty_like,
     from_numpy,
     open,
@@ -90,9 +83,9 @@ from .highlevel import (
 )
 from .libtiledb import (
     Array,
+    Ctx,
     DenseArrayImpl,
     SparseArrayImpl,
-    consolidate,
     ls,
     move,
     object_type,

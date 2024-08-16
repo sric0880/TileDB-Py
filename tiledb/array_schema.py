@@ -6,12 +6,16 @@ from typing import Sequence, Tuple, Union
 import numpy as np
 
 import tiledb.cc as lt
+from tiledb.libtiledb import version as libtiledb_version
 
 from .attribute import Attr
 from .ctx import Ctx, CtxMixin, default_ctx
 from .dimension_label import DimLabel
 from .domain import Domain
 from .filter import Filter, FilterList
+
+if libtiledb_version()[0] == 2 and libtiledb_version()[1] >= 25:
+    from .current_domain import CurrentDomain
 
 _tiledb_order_to_string = {
     lt.LayoutType.ROW_MAJOR: "row-major",
@@ -38,20 +42,17 @@ class ArraySchema(CtxMixin, lt.ArraySchema):
     Schema class for TileDB dense / sparse array representations
 
     :param domain: Domain of schema
-    :type attrs: tuple(tiledb.Attr, ...)
+    :param attrs: tuple of attributes
     :param cell_order:  TileDB label for cell layout
-    :type cell_order: 'row-major' (default) or 'C', 'col-major' or 'F' or 'hilbert'
     :param tile_order:  TileDB label for tile layout
-    :type tile_order: 'row-major' (default) or 'C', 'col-major' or 'F'
     :param int capacity: tile cell capacity
     :param offsets_filters: (default None) offsets filter list
-    :type offsets_filters: tiledb.FilterList
     :param validity_filters: (default None) validity filter list
-    :type validity_filters: tiledb.FilterList
     :param bool allows_duplicates: True if duplicates are allowed
     :param bool sparse: True if schema is sparse, else False \
         (set by SparseArray and DenseArray derived classes)
     :param dim_labels: dict(dim_index, dict(dim_name, tiledb.DimSchema))
+    :param enums: list of enumeration names
     :param tiledb.Ctx ctx: A TileDB Context
     :raises: :py:exc:`tiledb.TileDBError`
 
@@ -386,6 +387,28 @@ class ArraySchema(CtxMixin, lt.ArraySchema):
         :rtype: boolean
         """
         return self._has_dim_label(self._ctx, name)
+
+    if libtiledb_version()[0] == 2 and libtiledb_version()[1] >= 25:
+
+        @property
+        def current_domain(self) -> CurrentDomain:
+            """Get the current domain
+
+            :rtype: tiledb.CurrentDomain
+            """
+            curr_dom = CurrentDomain.from_pybind11(
+                self._ctx, self._current_domain(self._ctx)
+            )
+            curr_dom._set_domain(self.domain)
+            return curr_dom
+
+        def set_current_domain(self, current_domain):
+            """Set the current domain
+
+            :param current_domain: The current domain to set
+            :type current_domain: tiledb.CurrentDomain
+            """
+            self._set_current_domain(self._ctx, current_domain)
 
     def attr_or_dim_dtype(self, name: str) -> bool:
         if self.has_attr(name):

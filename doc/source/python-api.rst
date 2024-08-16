@@ -38,11 +38,24 @@ Context
    :members:
 
 .. autofunction:: tiledb.default_ctx
+.. autofunction:: tiledb.scope_ctx
 
 Config
 ------
 
 .. autoclass:: tiledb.Config
+   :members:
+
+Current Domain
+--------------
+
+.. autoclass:: tiledb.CurrentDomain
+   :members:
+
+NDRectangle
+-----------
+
+.. autoclass:: tiledb.NDRectangle
    :members:
 
 Array Schema
@@ -188,12 +201,17 @@ Fragment Info
 .. autoclass:: tiledb.FragmentInfo
    :members:
 
+Enumeration
+------------
+
+.. autoclass:: tiledb.Enumeration
+   :members:
+
 Exceptions
 ----------
 
 .. autoexception:: tiledb.TileDBError
    :members:
-
 
 VFS
 ---

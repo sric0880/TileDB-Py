@@ -1,3 +1,84 @@
+# Release 0.31.1
+
+## Improvements
+
+* Fix malformed doc str for tiledb.array_schema.ArraySchema in https://github.com/TileDB-Inc/TileDB-Py/pull/2007
+* Fix deprecation and test by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/2021
+
+## Build system changes
+
+* Add pandas dependency to test group by @dudoslav and @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/2022
+* Define TILEDB_REMOVE_DEPRECATIONS macro for cc and remove deprecated code by @kounelisagis and @dudoslav in https://github.com/TileDB-Inc/TileDB-Py/pull/2023
+
+# Release 0.31.0
+
+* TileDB-Py 0.31.0 includes TileDB Embedded [2.25.0](https://github.com/TileDB-Inc/TileDB/releases/tag/2.25.0)
+
+## Improvements
+
+* Remove deprecated Array.delete_fragments code path by @teo-tsirpanis and @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/2009
+* Fix a typo in an error message by @johnkerl in https://github.com/TileDB-Inc/TileDB-Py/pull/2004
+* Support ctx argument in array_exists by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/2003
+* Move fragment list consolidation API to pybind by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1999
+
+## Build system changes
+
+* Add version pins for pandas 3.0 by @kounelisagis https://github.com/TileDB-Inc/TileDB-Py/pull/2016
+* Scikit-build-core build system rework by @dudoslav and @ihnorton in https://github.com/TileDB-Inc/TileDB-Py/pull/1988
+* Patches for the build system by @dudoslav, @ihnorton and @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/2010, https://github.com/TileDB-Inc/TileDB-Py/pull/2011, https://github.com/TileDB-Inc/TileDB-Py/pull/2013, https://github.com/TileDB-Inc/TileDB-Py/pull/2014, https://github.com/TileDB-Inc/TileDB-Py/pull/2018, https://github.com/TileDB-Inc/TileDB-Py/pull/2019, https://github.com/TileDB-Inc/TileDB-Py/pull/2020
+
+# Release 0.30.2
+
+## Packaging Notes
+
+While we currently plan to maintain support for CentOS 7-compatible systems (GLIBC 2.17) through TileDB 2.31, ecosystem and infrastructure updates following the CentOS 7 end-of-life on 30/Jun/2024 may necessitate dropping support earlier. Please contact us if you still use a CentOS 7 (GLIBC 2.17)-like Linux distribution.
+
+## Improvements
+
+* Fix OverflowError: Python int too large to convert to C long by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/2000
+* Wrap as_built function by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1994
+* Fix array.query() incorrectly handling nullables by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1998
+* Add offending column when from_pandas -> _get_column_infos fails by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1997
+
+# Release 0.30.1
+
+* TileDB-Py 0.30.1 includes TileDB Embedded [2.24.1](https://github.com/TileDB-Inc/TileDB/releases/tag/2.24.1)
+
+## Improvements
+
+* Document Azure, GCS and local support for VFS.ls_recursive by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1980
+* Skip Dask failing test on Windows by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1995
+
+# Release 0.30.0
+
+* TileDB-Py 0.30.0 includes TileDB Embedded [2.24.0](https://github.com/TileDB-Inc/TileDB/releases/tag/2.24.0)
+
+## Improvements
+
+* Add test for blob attribute by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1985
+* Deprecate support for [] indexing with floats by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1982
+* Fix Query constructor to return error for dense arrays with return_incomplete=True by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1976
+* Expose WebP enums by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1974
+* Add Array.query in docs and improve docs in general by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1965
+* Add support for creating WKB/WKT attributes by @jp-dark in https://github.com/TileDB-Inc/TileDB-Py/pull/1912
+* Add wrapping for ls recursive by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1968
+* Fix compatibility for delete_fragments by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1966
+
+## Build system changes
+
+* Fix pinning wrong numpy version by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1989
+* Remove pin to MSVC toolset version in CI by @teo-tsirpanis in https://github.com/TileDB-Inc/TileDB-Py/pull/1991
+* Fix ModuleNotFoundError: No module named 'numpy' on build by @kounelisagis and @ihnorton in https://github.com/TileDB-Inc/TileDB-Py/pull/1979
+* Add support for numpy2 by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1969
+* Fix syntax error in nightly build workflow by @ihnorton in https://github.com/TileDB-Inc/TileDB-Py/pull/1970
+* Set an upper bound for numpy to dodge 2.0 by @sgillies in https://github.com/TileDB-Inc/TileDB-Py/pull/1963
+
+# Release 0.29.1
+
+## Build system changes
+
+* Add numpy upper bound to dodge 2.0 by @kounelisagis in https://github.com/TileDB-Inc/TileDB-Py/pull/1993
+
 # Release 0.29.0
 
 * TileDB-Py 0.29.0 includes TileDB Embedded [2.23.0](https://github.com/TileDB-Inc/TileDB/releases/tag/2.23.0)

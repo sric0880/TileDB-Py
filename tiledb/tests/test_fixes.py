@@ -17,6 +17,38 @@ tm = pd._testing
 
 
 class FixesTest(DiskTestCase):
+    def test_sc50378_overflowerror_python_int_too_large_to_convert_to_c_long(self):
+        uri = self.path(
+            "test_sc50378_overflowerror_python_int_too_large_to_convert_to_c_long"
+        )
+        MAX_UINT64 = np.iinfo(np.uint64).max
+        dim = tiledb.Dim(
+            name="id",
+            domain=(0, MAX_UINT64 - 1),
+            dtype=np.dtype(np.uint64),
+        )
+        dom = tiledb.Domain(dim)
+        text_attr = tiledb.Attr(name="text", dtype=np.dtype("U1"), var=True)
+        attrs = [text_attr]
+        schema = tiledb.ArraySchema(
+            domain=dom,
+            sparse=True,
+            allows_duplicates=False,
+            attrs=attrs,
+        )
+        tiledb.Array.create(uri, schema)
+
+        with tiledb.open(uri, "w") as A:
+            external_ids = np.array([0, 100, MAX_UINT64 - 1], dtype=np.dtype(np.uint64))
+            data = {"text": np.array(["foo", "bar", "baz"], dtype="<U3")}
+            A[external_ids] = data
+
+        array = tiledb.open(uri, "r", timestamp=None, config=None)
+        array[0]["text"][0]
+        array[100]["text"][0]
+        # This used to fail
+        array[MAX_UINT64 - 1]["text"][0]
+
     def test_ch7727_float32_dim_estimate_incorrect(self):
         # set max allocation: because windows won't overallocate
         with tiledb.scope_ctx({"py.alloc_max_bytes": 1024**2 * 100}):
@@ -31,7 +63,12 @@ class FixesTest(DiskTestCase):
 
             with tiledb.open(uri, mode="r") as T:
                 assert T[:][""] == b"hello"
-                assert T[50.4][""] == b"hello"
+                with pytest.warns(
+                    DeprecationWarning,
+                    match="The use of floats in selection is deprecated. "
+                    "It is slated for removal in 0.31.0.",
+                ):
+                    assert T[50.4][""] == b"hello"
 
     def test_ch8292(self):
         # test fix for ch8292
@@ -58,7 +95,7 @@ class FixesTest(DiskTestCase):
                 buffers = list(*q._get_buffers().values())
                 assert buffers[0].nbytes == max_val
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     def test_ch10282_concurrent_multi_index(self):
         """Test concurrent access to a single tiledb.Array using
         Array.multi_index and Array.df. We pass an array and slice
@@ -136,7 +173,8 @@ class FixesTest(DiskTestCase):
             tiledb.stats_disable()
 
     @pytest.mark.skipif(
-        not has_pandas() and has_pyarrow(), reason="pandas or pyarrow not installed"
+        not has_pandas() and has_pyarrow(),
+        reason="pandas>=1.0,<3.0 or pyarrow>=1.0 not installed",
     )
     def test_py1078_df_all_empty_strings(self):
         uri = self.path()
@@ -180,6 +218,7 @@ class FixesTest(DiskTestCase):
         assert get_config_with_env({"AWS_DEFAULT_REGION": ""}, "vfs.s3.region") == ""
         assert get_config_with_env({"AWS_REGION": ""}, "vfs.s3.region") == ""
 
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     @pytest.mark.parametrize("is_sparse", [True, False])
     def test_sc1430_nonexisting_timestamp(self, is_sparse):
         path = self.path("nonexisting_timestamp")

@@ -1,19 +1,27 @@
 [build-system]
-requires = ["setuptools>=64", "wheel", "pybind11", "Cython"]
-build-backend = "setuptools.build_meta"
+requires = [
+    "scikit-build-core",
+    "pybind11",
+    "Cython>=3",
+    "numpy==1.17.* ; python_version == '3.8' and platform_machine not in 'arm64|aarch64'",
+    "numpy==1.19.* ; python_version == '3.8' and platform_machine == 'aarch64'",
+    "numpy==1.21.* ; python_version == '3.8' and platform_machine == 'arm64'",
+    "numpy>=2.0.1 ; python_version >= '3.9'"
+]
+build-backend = "scikit_build_core.build"
 
 [project]
 requires-python = ">=3.8"
 name = "tiledb"
 description = "Pythonic interface to the TileDB array storage manager"
 readme = "README.md"
+license = {text = "MIT"}
 authors = [
   {name = "TileDB, Inc.", email = "help@tiledb.io"}
 ]
 maintainers = [
   {name = "TileDB, Inc.", email = "help@tiledb.io"}
 ]
-license = {text = "MIT"}
 classifiers=[
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -33,30 +41,57 @@ classifiers=[
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "numpy==1.17.*,<2.0 ; python_version == '3.8' and platform_machine != 'aarch64'",
-    "numpy==1.19.4,<2.0 ; python_version == '3.9' and platform_machine != 'aarch64'",
-    "numpy==1.20.*,<2.0 ; python_version < '3.10' and platform_machine == 'aarch64'",
-    "numpy==1.21.*,<2.0 ; python_version == '3.10'",
-    "numpy>=1.23.2,<2.0 ; python_version >= '3.11'",
+  "numpy>=1.17 ; python_version == '3.8' and platform_machine not in 'arm64|aarch64'",
+  "numpy>=1.19 ; python_version == '3.8' and platform_machine == 'aarch64'",
+  "numpy>=1.21 ; python_version == '3.8' and platform_machine == 'arm64'",
+  "numpy>=1.25 ; python_version >= '3.9'",
+  "packaging",
 ]
 dynamic = ["version"]
 
-[tool.setuptools.packages.find]
-exclude = ["*.pyc", ".pytest_cache/*", ".hypothesis/*"]
+[project.optional-dependencies]
+doc = [
+    "jinja2==3.0.0",
+    "sphinx-rtd-theme==2.0.0",
+    "Sphinx",
+    "breathe",
+]
+test = [
+    "pytest",
+    "hypothesis",
+    "psutil",
+    "pyarrow",
+    "pandas",
+]
 
 [project.urls]
 homepage = "https://github.com/TileDB-Inc/TileDB-Py"
 
 [tool.setuptools_scm]
-version_scheme = "guess-next-dev"
-local_scheme = "no-local-version"
 version_file = "tiledb/_generated_version.py"
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+wheel.packages = ["tiledb", "examples", "external"]
+wheel.license-files = ["LICENSE", "external/LICENSE-*.txt"]
+sdist.include = ["tiledb/_generated_version.py"]
+
+[tool.scikit-build.cmake.define]
+TILEDB_PATH = {env="TILEDB_PATH"}
+TILEDB_VERSION = {env="TILEDB_VERSION"}
+TILEDB_HASH = {env="TILEDB_HASH"}
+TILEDB_REMOVE_DEPRECATIONS = "ON"
 
 [tool.pytest.ini_options]
 python_classes = "*Test*"
 python_files = "test_*.py"
 testpaths = ["tiledb/tests"]
-addopts = "--ignore=tiledb/tests/perf --ignore=tiledb/tests/__pycache__"
+addopts = [
+    "--import-mode=importlib",
+    "--ignore=tiledb/tests/perf",
+    "--ignore=tiledb/tests/__pycache__",
+]
 filterwarnings = [
     "error",
     "default::pytest.PytestWarning",
@@ -77,3 +112,13 @@ select = ["NPY201"]
 
 [tool.ruff.per-file-ignores]
 "tiledb/__init__.py" = ["F401"]
+
+[tool.cibuildwheel]
+test-requires = [
+    "pytest",
+    "hypothesis",
+    "psutil",
+    "pyarrow",
+    "pandas",
+]
+test-command = "pytest {project}"

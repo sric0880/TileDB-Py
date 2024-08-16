@@ -35,16 +35,6 @@ void init_array(py::module &m) {
       .def("schema", &Array::schema)
       //.def("ptr", [](Array& arr){ return py::capsule(arr.ptr()); } )
       .def("open", (void(Array::*)(tiledb_query_type_t)) & Array::open)
-      // open with encryption key
-      .def("open",
-           (void(Array::*)(tiledb_query_type_t, tiledb_encryption_type_t,
-                           const std::string &)) &
-               Array::open)
-      // open with encryption key and timestamp
-      .def("open",
-           (void(Array::*)(tiledb_query_type_t, tiledb_encryption_type_t,
-                           const std::string &, uint64_t)) &
-               Array::open)
       .def("reopen", &Array::reopen)
       .def("set_open_timestamp_start", &Array::set_open_timestamp_start)
       .def("set_open_timestamp_end", &Array::set_open_timestamp_end)
@@ -55,22 +45,46 @@ void init_array(py::module &m) {
       .def("config", &Array::config)
       .def("close", &Array::close)
       .def("consolidate",
-           py::overload_cast<const Context &, const std::string &,
-                             Config *const>(&Array::consolidate),
-           py::call_guard<py::gil_scoped_release>())
+           [](Array &self, const Context &ctx, Config *config) {
+             if (self.query_type() == TILEDB_READ) {
+               throw TileDBError("cannot consolidate array opened in readonly "
+                                 "mode (mode='r')");
+             }
+             Array::consolidate(ctx, self.uri(), config);
+           })
       .def("consolidate",
-           py::overload_cast<const Context &, const std::string &,
-                             tiledb_encryption_type_t, const std::string &,
-                             Config *const>(&Array::consolidate),
-           py::call_guard<py::gil_scoped_release>())
-      //(void (Array::*)(const Context&, const std::string&,
-      //                 tiledb_encryption_type_t, const std::string&,
-      //                 Config* const)&Array::consolidate)&Array::consolidate)
+           [](Array &self, const Context &ctx,
+              const std::vector<std::string> &fragment_uris, Config *config) {
+             if (self.query_type() == TILEDB_READ) {
+               throw TileDBError("cannot consolidate array opened in readonly "
+                                 "mode (mode='r')");
+             }
+             std::vector<const char *> c_strings;
+             c_strings.reserve(fragment_uris.size());
+             for (const auto &str : fragment_uris) {
+               c_strings.push_back(str.c_str());
+             }
+
+             Array::consolidate(ctx, self.uri(), c_strings.data(),
+                                fragment_uris.size(), config);
+           })
+      .def("consolidate",
+           [](Array &self, const Context &ctx,
+              const std::tuple<int, int> &timestamp, Config *config) {
+             if (self.query_type() == TILEDB_READ) {
+               throw TileDBError("cannot consolidate array opened in readonly "
+                                 "mode (mode='r')");
+             }
+             int start, end;
+             std::tie(start, end) = timestamp;
+
+             config->set("sm.consolidation.timestamp_start",
+                         std::to_string(start));
+             config->set("sm.consolidation.timestamp_end", std::to_string(end));
+
+             Array::consolidate(ctx, self.uri(), config);
+           })
       .def("vacuum", &Array::vacuum)
-      .def("create",
-           py::overload_cast<const std::string &, const ArraySchema &,
-                             tiledb_encryption_type_t, const std::string &>(
-               &Array::create))
       .def("create",
            py::overload_cast<const std::string &, const ArraySchema &>(
                &Array::create))
@@ -97,7 +111,6 @@ void init_array(py::module &m) {
            })
       .def("consolidate_metadata",
            py::overload_cast<const Context &, const std::string &,
-                             tiledb_encryption_type_t, const std::string &,
                              Config *const>(&Array::consolidate_metadata))
       .def("put_metadata",
            [](Array &self, std::string &key, tiledb_datatype_t tdb_type,

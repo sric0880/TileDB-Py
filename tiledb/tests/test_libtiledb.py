@@ -112,7 +112,7 @@ class ArrayTest(DiskTestCase):
 
         # test that we cannot consolidate an array in readonly mode
         with self.assertRaises(tiledb.TileDBError):
-            array.consolidate()
+            array.consolidate(config=config)
 
         # we have not written anything, so the array is empty
         self.assertIsNone(array.nonempty_domain())
@@ -179,44 +179,50 @@ class ArrayTest(DiskTestCase):
         config["sm.consolidation.step_min_frags"] = 0
         config["sm.consolidation.steps"] = 1
         schema = self.create_array_schema()
+        key = "0123456789abcdeF0123456789abcdeF"
         # persist array schema
-        tiledb.libtiledb.Array.create(
-            self.path("foo"), schema, key=b"0123456789abcdeF0123456789abcdeF"
-        )
+        tiledb.libtiledb.Array.create(self.path("foo"), schema, key=key)
 
         # check that we can open the array sucessfully
-        for key in (
-            b"0123456789abcdeF0123456789abcdeF",
-            "0123456789abcdeF0123456789abcdeF",
-        ):
-            with tiledb.libtiledb.Array(self.path("foo"), mode="r", key=key) as array:
-                self.assertTrue(array.isopen)
-                self.assertEqual(array.schema, schema)
-                self.assertEqual(array.mode, "r")
-            with tiledb.open(self.path("foo"), mode="r", key=key) as array:
-                self.assertTrue(array.isopen)
-                self.assertEqual(array.schema, schema)
-                self.assertEqual(array.mode, "r")
+        config = tiledb.Config()
+        config["sm.encryption_key"] = key
+        config["sm.encryption_type"] = "AES_256_GCM"
+        ctx = tiledb.Ctx(config=config)
 
-            tiledb.consolidate(uri=self.path("foo"), config=config, key=key)
+        with tiledb.libtiledb.Array(self.path("foo"), mode="r", ctx=ctx) as array:
+            self.assertTrue(array.isopen)
+            self.assertEqual(array.schema, schema)
+            self.assertEqual(array.mode, "r")
+        with tiledb.open(self.path("foo"), mode="r", key=key, ctx=ctx) as array:
+            self.assertTrue(array.isopen)
+            self.assertEqual(array.schema, schema)
+            self.assertEqual(array.mode, "r")
 
+        tiledb.consolidate(uri=self.path("foo"), ctx=tiledb.Ctx(config))
+
+        config = tiledb.Config()
+        config["sm.encryption_key"] = "0123456789abcdeF0123456789abcdeX"
+        config["sm.encryption_type"] = "AES_256_GCM"
+        ctx = tiledb.Ctx(config=config)
         # check that opening the array with the wrong key fails:
         with self.assertRaises(tiledb.TileDBError):
-            tiledb.libtiledb.Array(
-                self.path("foo"), mode="r", key=b"0123456789abcdeF0123456789abcdeX"
-            )
+            tiledb.libtiledb.Array(self.path("foo"), mode="r", ctx=ctx)
 
+        config = tiledb.Config()
+        config["sm.encryption_key"] = "0123456789abcdeF0123456789abcde"
+        config["sm.encryption_type"] = "AES_256_GCM"
+        ctx = tiledb.Ctx(config=config)
         # check that opening the array with the wrong key length fails:
         with self.assertRaises(tiledb.TileDBError):
-            tiledb.libtiledb.Array(
-                self.path("foo"), mode="r", key=b"0123456789abcdeF0123456789abcde"
-            )
+            tiledb.libtiledb.Array(self.path("foo"), mode="r", ctx=ctx)
 
+        config = tiledb.Config()
+        config["sm.encryption_key"] = "0123456789abcdeF0123456789abcde"
+        config["sm.encryption_type"] = "AES_256_GCM"
+        ctx = tiledb.Ctx(config=config)
         # check that consolidating the array with the wrong key fails:
         with self.assertRaises(tiledb.TileDBError):
-            tiledb.consolidate(
-                self.path("foo"), config=config, key=b"0123456789abcdeF0123456789abcde"
-            )
+            tiledb.consolidate(self.path("foo"), config=config, ctx=ctx)
 
     # needs core fix in 2.2.4
     @pytest.mark.skipif(
@@ -397,7 +403,7 @@ class ArrayTest(DiskTestCase):
 
     @pytest.mark.skipif(
         not has_pyarrow() or not has_pandas(),
-        reason="pyarrow and/or pandas not installed",
+        reason="pyarrow>=1.0 and/or pandas>=1.0,<3.0 not installed",
     )
     @pytest.mark.parametrize("sparse", [True, False])
     @pytest.mark.parametrize("pass_df", [True, False])
@@ -429,10 +435,12 @@ class ArrayTest(DiskTestCase):
             expected_validity1 = [False, False, True, False, False]
             assert_array_equal(A[:]["a1"].mask, expected_validity1)
             assert_array_equal(A.df[:]["a1"].isna(), expected_validity1)
+            assert_array_equal(A.query(attrs=["a1"])[:]["a1"].mask, expected_validity1)
 
             expected_validity2 = [False, False, True, True, False]
             assert_array_equal(A[:]["a2"].mask, expected_validity2)
             assert_array_equal(A.df[:]["a2"].isna(), expected_validity2)
+            assert_array_equal(A.query(attrs=["a2"])[:]["a2"].mask, expected_validity2)
 
         with tiledb.open(uri, "w") as A:
             dims = pa.array([1, 2, 3, 4, 5])
@@ -452,10 +460,12 @@ class ArrayTest(DiskTestCase):
             expected_validity1 = [True, True, True, True, True]
             assert_array_equal(A[:]["a1"].mask, expected_validity1)
             assert_array_equal(A.df[:]["a1"].isna(), expected_validity1)
+            assert_array_equal(A.query(attrs=["a1"])[:]["a1"].mask, expected_validity1)
 
             expected_validity2 = [True, True, True, True, True]
             assert_array_equal(A[:]["a2"].mask, expected_validity2)
             assert_array_equal(A.df[:]["a2"].isna(), expected_validity2)
+            assert_array_equal(A.query(attrs=["a2"])[:]["a2"].mask, expected_validity2)
 
 
 class DenseArrayTest(DiskTestCase):
@@ -1738,7 +1748,7 @@ class TestSparseArray(DiskTestCase):
                 "coords" not in T.query(coords=False).multi_index[-10.0:5.0]
             )
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     @pytest.mark.parametrize("dtype", ["u1", "u2", "u4", "u8", "i1", "i2", "i4", "i8"])
     def test_sparse_index_dtypes(self, dtype):
         path = self.path()
@@ -1759,7 +1769,7 @@ class TestSparseArray(DiskTestCase):
             assert B[data[1]]["attr"] == data[1]
             assert B.multi_index[data[0]]["attr"] == data[0]
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     @pytest.mark.skipif(
         tiledb.libtiledb.version() < (2, 10),
         reason="TILEDB_BOOL introduced in libtiledb 2.10",
@@ -2463,7 +2473,9 @@ class TestDenseIndexing(DiskTestCase):
         # slice(-1, 0, -1),
     ]
 
-    bad_index_1d = [2.3, "foo", b"xxx", None, (0, 0), (slice(None), slice(None))]
+    bad_index_1d = ["foo", b"xxx", None, (0, 0), (slice(None), slice(None))]
+
+    warn_and_bad_index_1d = [2.3, -4.5]
 
     def test_index_1d(self):
         A = np.arange(1050, dtype=int)
@@ -2483,6 +2495,15 @@ class TestDenseIndexing(DiskTestCase):
             for idx in self.bad_index_1d:
                 with self.assertRaises(IndexError):
                     T[idx]
+
+            for idx in self.warn_and_bad_index_1d:
+                with pytest.warns(
+                    DeprecationWarning,
+                    match="The use of floats in selection is deprecated. "
+                    "It is slated for removal in 0.31.0.",
+                ):
+                    with self.assertRaises(IndexError):
+                        T[idx]
 
     good_index_2d = [
         # single row
@@ -2524,13 +2545,16 @@ class TestDenseIndexing(DiskTestCase):
     ]
 
     bad_index_2d = [
-        2.3,
         "foo",
         b"xxx",
         None,
-        (2.3, slice(None)),
         (0, 0, 0),
         (slice(None), slice(None), slice(None)),
+    ]
+
+    warn_and_bad_index_2d = [
+        2.3,
+        (2.3, slice(None)),
     ]
 
     def test_index_2d(self):
@@ -2553,6 +2577,15 @@ class TestDenseIndexing(DiskTestCase):
             for idx in self.bad_index_2d:
                 with self.assertRaises(IndexError):
                     T[idx]
+
+            for idx in self.warn_and_bad_index_2d:
+                with pytest.warns(
+                    DeprecationWarning,
+                    match="The use of floats in selection is deprecated. "
+                    "It is slated for removal in 0.31.0.",
+                ):
+                    with self.assertRaises(IndexError):
+                        T[idx]
 
 
 class TestDatetimeSlicing(DiskTestCase):
@@ -3183,8 +3216,7 @@ class ConsolidationTest(DiskTestCase):
         self.assertEqual(fi.unconsolidated_metadata_num, num_writes)
 
         conf = tiledb.Config({"sm.consolidation.mode": "fragment_meta"})
-        with tiledb.open(path3, "w") as A:
-            A.consolidate(config=conf)
+        tiledb.consolidate(uri=path3, config=conf)
 
         fi = tiledb.array_fragments(path3)
         self.assertEqual(fi.unconsolidated_metadata_num, 0)
@@ -3211,14 +3243,7 @@ class ConsolidationTest(DiskTestCase):
         frags = tiledb.array_fragments(path)
         assert len(frags) == 10
 
-        with pytest.warns(
-            DeprecationWarning,
-            match=(
-                "The `timestamp` argument is deprecated; pass a list of "
-                "fragment URIs to consolidate with `fragment_uris`"
-            ),
-        ):
-            tiledb.consolidate(path, timestamp=(1, 4))
+        tiledb.consolidate(path, timestamp=(1, 4))
 
         frags = tiledb.array_fragments(path)
         assert len(frags) == 7
@@ -3296,29 +3321,34 @@ class ConsolidationTest(DiskTestCase):
         num_writes = 10
 
         path = self.path("test_array_consolidate_with_key")
-        key = b"0123456789abcdeF0123456789abcdeF"
+        key = "0123456789abcdeF0123456789abcdeF"
+
+        config = tiledb.Config()
+        config["sm.encryption_key"] = key
+        config["sm.encryption_type"] = "AES_256_GCM"
+        ctx = tiledb.Ctx(config=config)
 
         def create_array(target_path, dshape):
             dom = tiledb.Domain(tiledb.Dim(domain=dshape, tile=len(dshape)))
             att = tiledb.Attr(dtype="int64")
             schema = tiledb.ArraySchema(domain=dom, attrs=(att,), sparse=True)
-            tiledb.libtiledb.Array.create(target_path, schema)
+            tiledb.libtiledb.Array.create(target_path, schema, ctx=ctx)
 
         def write_fragments(target_path, dshape, num_writes):
             for i in range(1, num_writes + 1):
-                with tiledb.open(target_path, "w", timestamp=i) as A:
+                with tiledb.open(target_path, "w", timestamp=i, ctx=ctx) as A:
                     A[[1, 2, 3]] = np.random.rand(dshape[1])
 
         create_array(path, dshape)
         write_fragments(path, dshape, num_writes)
-        frags = tiledb.array_fragments(path)
+        frags = tiledb.array_fragments(path, ctx=ctx)
         assert len(frags) == 10
 
         frag_names = [os.path.basename(f) for f in frags.uri]
 
-        tiledb.consolidate(path, fragment_uris=frag_names[:4], key=key)
+        tiledb.consolidate(path, ctx=ctx, config=config, fragment_uris=frag_names[:4])
 
-        assert len(tiledb.array_fragments(path)) == 7
+        assert len(tiledb.array_fragments(path, ctx=ctx)) == 7
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Only run MemoryTest on linux")
@@ -3598,7 +3628,23 @@ class IncompleteTest(DiskTestCase):
                 T2.multi_index[101:105][""], np.array([], dtype=np.dtype("<U"))
             )
 
-    @pytest.mark.skipif(not has_pandas(), reason="pandas not installed")
+    @pytest.mark.parametrize("sparse", [True, False])
+    def test_query_return_incomplete_error(self, sparse):
+        path = self.path("test_query_return_incomplete_error")
+
+        dom = tiledb.Domain(tiledb.Dim(domain=(1, 3), tile=1))
+        attrs = [tiledb.Attr("ints", dtype=np.uint8)]
+        schema = tiledb.ArraySchema(domain=dom, attrs=attrs, sparse=sparse)
+        tiledb.Array.create(path, schema)
+
+        with tiledb.open(path, "r") as A:
+            if sparse:
+                A.query(return_incomplete=True)[:]
+            else:
+                with self.assertRaises(tiledb.TileDBError):
+                    A.query(return_incomplete=True)[:]
+
+    @pytest.mark.skipif(not has_pandas(), reason="pandas>=1.0,<3.0 not installed")
     @pytest.mark.parametrize(
         "use_arrow, return_arrow, indexer",
         [
@@ -3786,7 +3832,7 @@ class IncompleteTest(DiskTestCase):
         tiledb.stats_disable()
 
 
-class TestTest(DiskTestCase):
+class TestPath(DiskTestCase):
     def test_path(self, pytestconfig):
         path = self.path("foo")
         if pytestconfig.getoption("vfs") == "s3":
@@ -3800,3 +3846,64 @@ class TestTest(DiskTestCase):
     )
     def test_no_output(self):
         print("this test should fail")
+
+
+class TestAsBuilt(DiskTestCase):
+    def test_as_built(self):
+        dump = tiledb.as_built(return_json_string=True)
+        assert isinstance(dump, str)
+        # ensure we get a non-empty string
+        assert len(dump) > 0
+        dump_dict = tiledb.as_built()
+        assert isinstance(dump_dict, dict)
+        # ensure we get a non-empty dict
+        assert len(dump_dict) > 0
+
+        # validate top-level key
+        assert "as_built" in dump_dict
+        assert isinstance(dump_dict["as_built"], dict)
+        assert len(dump_dict["as_built"]) > 0
+
+        # validate parameters key
+        assert "parameters" in dump_dict["as_built"]
+        assert isinstance(dump_dict["as_built"]["parameters"], dict)
+        assert len(dump_dict["as_built"]["parameters"]) > 0
+
+        # validate storage_backends key
+        assert "storage_backends" in dump_dict["as_built"]["parameters"]
+        assert isinstance(dump_dict["as_built"]["parameters"]["storage_backends"], dict)
+        assert len(dump_dict["as_built"]["parameters"]["storage_backends"]) > 0
+
+        x = dump_dict["as_built"]["parameters"]["storage_backends"]
+
+        # validate storage_backends attributes
+        vfs = tiledb.VFS()
+        if vfs.supports("azure"):
+            assert x["azure"]["enabled"] == True
+        else:
+            assert x["azure"]["enabled"] == False
+
+        if vfs.supports("gcs"):
+            assert x["gcs"]["enabled"] == True
+        else:
+            assert x["gcs"]["enabled"] == False
+
+        if vfs.supports("hdfs"):
+            assert x["hdfs"]["enabled"] == True
+        else:
+            assert x["hdfs"]["enabled"] == False
+
+        if vfs.supports("s3"):
+            assert x["s3"]["enabled"] == True
+        else:
+            assert x["s3"]["enabled"] == False
+
+        # validate support key
+        assert "support" in dump_dict["as_built"]["parameters"]
+        assert isinstance(dump_dict["as_built"]["parameters"]["support"], dict)
+        assert len(dump_dict["as_built"]["parameters"]["support"]) > 0
+
+        # validate support attributes - check only if boolean
+        assert dump_dict["as_built"]["parameters"]["support"]["serialization"][
+            "enabled"
+        ] in [True, False]

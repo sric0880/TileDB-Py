@@ -165,10 +165,6 @@ void init_schema(py::module &m) {
 
       .def(py::init<Context &, std::string &>())
 
-      .def(py::init<Context &, std::string &, tiledb_encryption_type_t,
-                    std::string &>(),
-           py::keep_alive<1, 2>())
-
       .def(py::init<Context &, py::capsule>())
 
       .def("__capsule__",
@@ -272,10 +268,26 @@ void init_schema(py::module &m) {
                                                                  name);
            })
 
-      .def("_add_enumeration", [](const ArraySchema &schema, const Context &ctx,
-                                  const Enumeration &enmr) {
-        ArraySchemaExperimental::add_enumeration(ctx, schema, enmr);
-      });
+      .def("_add_enumeration",
+           [](const ArraySchema &schema, const Context &ctx,
+              const Enumeration &enmr) {
+             ArraySchemaExperimental::add_enumeration(ctx, schema, enmr);
+           })
+
+#if TILEDB_VERSION_MAJOR >= 2 && TILEDB_VERSION_MINOR >= 25
+      .def("_current_domain",
+           [](const ArraySchema &schema, const Context &ctx) {
+             return ArraySchemaExperimental::current_domain(ctx, schema);
+           })
+
+      .def("_set_current_domain",
+           [](ArraySchema &schema, const Context &ctx,
+              const CurrentDomain &current_domain) {
+             ArraySchemaExperimental::set_current_domain(ctx, schema,
+                                                         current_domain);
+           })
+#endif
+      ;
 }
 
 } // namespace libtiledbcpp
